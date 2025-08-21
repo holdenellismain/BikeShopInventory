@@ -19,23 +19,15 @@ def log_exception(exc_type, exc_value, exc_traceback):
 
 if __name__ == "__main__":
     # replace this with the path to the folder containing all new orders
-    folder_path = "/Users/bikeshop/Downloads/orders"
-    folder_path = "C:/Users/fires/Downloads/orders"
+    folder_path = ""
 
     # replace this with the path for the most recent catalog downloaded from 
     # qpb.com/qbponlinestorefront/services/product_database
-    qbp_catalog_path = "/Users/bikeshop/Downloads/orders/qbpcatalog.txt"  # maybe change this to just look for it in the orders folder
-    qbp_catalog_path = "C:/Users/fires/Downloads/orders/qbpcatalog.txt"
+    qbp_catalog_path = ""
 
-    #env_path = "/Users/bikeshop/Downloads/orders/code/env" # API key stored here
-    #load_dotenv(dotenv_path=env_path)
-    #token = os.getenv("TOKEN")
-    token = "cafcbe87-7a98-a57d-47b1-954967db7468"
-    #mid = os.getenv("CLIENT_ID")
-    mid = "XVX1DMCTNDDW1"
-    base_url = "https://api.clover.com/v3/merchants"
+    env_path = "/Users/bikeshop/Downloads/orders/code/env" # API key stored here
 
-        # set up logging
+    # set up logging
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename='inv_writes.log', 
                         encoding='utf-8', 
@@ -48,6 +40,10 @@ if __name__ == "__main__":
     print(f'Attemping to write {order_path} to inventory')
 
     # set up API
+    load_dotenv(dotenv_path=env_path)
+    token = os.getenv("TOKEN")
+    mid = os.getenv("CLIENT_ID")
+    base_url = "https://api.clover.com/v3/merchants"
     inv = InventoryAdapter(token, mid, base_url, logger)
     logger.info(f'Starting input of order {order_path}')
 
@@ -91,3 +87,4 @@ if __name__ == "__main__":
         file.write(order_path + "\n")
         print("Order fully uploaded to Clover")
         logger.info(f'Completed input of order {order_path}')
+
