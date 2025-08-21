@@ -25,7 +25,7 @@ if __name__ == "__main__":
     # qpb.com/qbponlinestorefront/services/product_database
     qbp_catalog_path = ""
 
-    env_path = "/Users/bikeshop/Downloads/orders/code/env" # API key stored here
+    env_path = "" # path to env file, API key stored here
 
     # set up logging
     logger = logging.getLogger(__name__)
@@ -87,4 +87,5 @@ if __name__ == "__main__":
         file.write(order_path + "\n")
         print("Order fully uploaded to Clover")
         logger.info(f'Completed input of order {order_path}')
+
 
