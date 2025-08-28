@@ -175,8 +175,8 @@ class InventoryAdapter:
         try:
             current_stock = get_output["itemStock"]["quantity"]
             if get_output['priceType'] != "FIXED": # Usually indicates "PER_UNIT" pricing. Can be "VARIABLE" but we don't use it
-                print(f"WARNING: {get_output["name"]} is priced by length. Add new stock manually.")
-                self.logger.warning(f"{get_output["name"]} priced by length. No stock added.")
+                print(f'WARNING: {get_output["name"]} is priced by length. Add new stock manually.')
+                self.logger.warning(f'{get_output["name"]} priced by length. No stock added.')
                 return
         # for some items (e.g. those created by the first half of post_new_item), 
         # the stock attribute may not exist yet, assume the stock is 0
@@ -226,3 +226,4 @@ class InventoryAdapter:
             self.logger.error(f'{output["message"]} failed attempting add new item {item.code} ({cloverid})')
             raise Exception(output["message"])
             
+
