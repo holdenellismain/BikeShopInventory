@@ -5,6 +5,7 @@ import sys
 import logging
 import threading
 from OrderItem import OrderItem
+import webbrowser
 from dotenv import load_dotenv
 
 # Import your custom modules
@@ -56,7 +57,7 @@ class EditItemWindow(tk.Toplevel):
         self.vars = {}
         
         # Define which fields are editable
-        self.editable_fields = ["name", "newStock", "cost", "price", "upc", "priceType", "unit"]
+        self.editable_fields = ["name", "newStock", "cost", "price", "priceType", "unit"]
 
         # Create entry widgets for each editable field
         frame = tk.Frame(self, padx=10, pady=10)
@@ -278,7 +279,7 @@ class InventoryApp:
         thread.start()
 
     def on_item_double_click(self, event):
-        """Handles the double-click event on the treeview to open the editor."""
+        """Handles the double-click event of the treeview to open the editor."""
         item_id = self.tree.focus() # Get selected item
         if not item_id:
             return
@@ -371,6 +372,11 @@ class InventoryApp:
             
             if is_qbp_order and not qbp_path:
                 raise ValueError("QBP Catalog file is required for .html orders.")
+            
+            if is_qbp_order:
+                if not messagebox.askyesno("Confirmation", "Has the QBP Inventory file been updated?"):
+                    webbrowser.open("https://login.qbp.com/login")
+                    raise ValueError("Please update the QBP Catalog file.")
             
             if not os.path.exists(order_path): raise FileNotFoundError(f"Order file not found: {order_path}")
             if is_qbp_order and not os.path.exists(qbp_path): raise FileNotFoundError(f"Catalog file not found: {qbp_path}")

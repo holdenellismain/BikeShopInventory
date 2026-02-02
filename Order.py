@@ -28,7 +28,10 @@ class Order:
             qbp_inv = self._load_qbp_inv(qbp_catalog_path)
             self.items = self.parse_html(self.order_path)
             for item in self.items:
-                item.updateFromCatalog(qbp_inv)
+                try:
+                    item.updateFromCatalog(qbp_inv)
+                except KeyError as ke:
+                    raise ValueError(f"'{item.code}' not in QBP Catalog. Try downloading a new version.")
         else:
             self.items = self.parse_csv(self.order_path)
 

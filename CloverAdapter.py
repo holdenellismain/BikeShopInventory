@@ -17,25 +17,23 @@ class InventoryAdapter:
         self.logger = logger
         self.id_length = 13 # length for CloverIDs, hard coded
         self.ids_dict = self.get_ids() # {"code" : "CloverID}
-        self.qbp_inv = {} # {"code" : "upc"}, should only be populated if working with QBP items
-        self.row_format = "{:<10} | {:<25} | {:<12} | {:<14} | {:<10} | {:<10}" # format for print output table
 
-    def add_qbp_inv(self, path : str):
+    def _handle_api_error(self, response):
         """
-        Loads the QBP inventory from file so that SKU/UPC codes can be added. 
-        Updates the self.qbp_inv nested dictionary using the product code as the key
-        Args:
-            path: file path to qbpcatalog.txt (must be downloaded from QBP)
+        Helper to raise informative exceptions based on API status codes.
+        """
+        try:
+            content = response.json()
+            msg = content.get("message", response.reason)
+        except:
+            msg = response.text
 
-        """
-        with open(path, encoding="windows-1252", newline="") as f:
-            reader = csv.DictReader(f, delimiter="\t")
-            for row in reader:
-                self.qbp_inv[row["ProdId"]] = {
-                    "UPC": row["UPC"],
-                    "MSRP": row["MSRP"],
-                    "MAP": row["MAP"]
-                }
+        if response.status_code == 401:
+            raise PermissionError(f"{msg}. Please check your Merchant ID and Token in the .env file.")
+        elif response.status_code == 429:
+            raise ConnectionError(f"{msg}. Please wait before retrying.")
+        else:
+            raise Exception(f"Unkown API Error {response.status_code}: {msg}")
 
     def get_inv_dict_helper(self, offset = 0):
         """
@@ -53,8 +51,8 @@ class InventoryAdapter:
         url = f'{self.url}/items?limit=1000&offset={offset}' 
         response = get(url, headers=header) #http request
         
-        output = response.json()
         if 299 >= response.status_code >= 200:
+            output = response.json()
             if output['elements'] == []:
                 return {}
             for item in output['elements']: 
@@ -64,7 +62,7 @@ class InventoryAdapter:
                         raise Exception(f'CloverID not of length {self.id_length} found.')
             return products
         else:
-            raise Exception(output["message"])
+            self._handle_api_error(response)
     
     def get_ids(self):
         """
@@ -117,90 +115,62 @@ class InventoryAdapter:
             "accept": "application/json",
         }
         response = get(url, headers=headers)
-        output = response.json()
         if 299 >= response.status_code >= 200:
-            return output
+            return response.json()
         else:
-            raise Exception(output["message"])
+            self._handle_api_error(response)
 
-    def print_table_header(self):
+    def _order_table(self, old_stock : int, new_stock : int, get_item_output : dict, new_item : bool) -> dict:
         """
-        Writes to logger and prints header for output table based on row_format defined in constructor.
-        """
-        print(self.row_format.format("New Item?", "Name", "Sale Price", "SKU Code", "Old Stock", "New Stock"))
-        print("-" * 95)
-        self.logger.info(["New Item?", "Name", "Sale Price", "SKU Code", "Old Stock", "New Stock"])
-        return
-
-    def print_order_table(self, old_stock : int, new_stock : int, get_item_output : dict, new_item : bool):
-        """
-        Writes to logger and prints an output table to console. Uses row format defined in constructor.
+        Writes to logger and returns formatted data from the API calls.
         Args:
             old_stock (int): stock of an item prior to POST request
             new_stock (int): updated stock of an item, returned by the POST request
             get_item_output (dict): item dictionary returned by .get_single_item()
-            new_item (bool): indicates whether the item existed prior to 
+            new_item (bool): indicates whether the item existed prior to the current order input
+        Returns: 
+            (dict): with important info about the API call
         """
-        # set up row to be written
-        row = [
-            str(new_item), 
-            get_item_output.get("name")[:24], 
-            get_item_output.get("price"), 
-            get_item_output.get("sku"), 
-            int(old_stock), 
-            int(new_stock)]
-        
-        row[2] = f"${row[2] / 100:.2f}" if row[2] is not None else "" # convert price to dollars
-        row = [x if x is not None else "" for x in row] # replace None with empty string
-        
-        # print to console and write to log file
-        print(self.row_format.format(*row))
-        self.logger.info(row)
+        price = get_item_output.get("price")
+        formatted_price = f"${price / 100:.2f}" if price is not None else ""
 
-    def post_stock(self, code : str, quantity : int):
+        output_data = {
+            "new": new_item,
+            "name": get_item_output.get("name", ""),
+            "price": formatted_price,
+            "sku": get_item_output.get("sku", ""),
+            "old stock": int(old_stock),
+            "new stock": int(new_stock),
+        }
+        
+        return output_data
+
+    def post_stock(self, item : OrderItem):
         """
-        Updates the stock for an inventory item
+        Updates the stock for an inventory item, 
+        This is a separate method because it has a different API endpoint
         Args:
             code: product code or cloverid for the item
             quantity: the new stock count for the item, make sure to add old stock
         """
-        # convert to a cloverid
-        if len(code) == 13:
-            cloverid = code
-        else:
-            cloverid = self.get_cloverid(code)
-
-        # get current stock
-        get_output = self.get_single_item(code)
-        try:
-            current_stock = get_output["itemStock"]["quantity"]
-            if get_output['priceType'] != "FIXED": # Usually indicates "PER_UNIT" pricing. Can be "VARIABLE" but we don't use it
-                print(f"WARNING: {get_output['name']} is priced by length. Add new stock manually.")
-                self.logger.warning(f"{get_output['name']} priced by length. No stock added.")
-                return
-        # for some items (e.g. those created by the first half of post_new_item), 
-        # the stock attribute may not exist yet, assume the stock is 0
-        except: 
-            current_stock = 0
-
         # update stock
-        url = f'{self.url}/item_stocks/{cloverid}' 
+        url = f'{self.url}/item_stocks/{item.cloverid}' 
         headers = {
             "authorization" : "Bearer " + self.token,
             "accept": "application/json",
         }
-        payload = {"quantity": quantity + current_stock}
+        payload = {"quantity": item.oldStock + item.newStock}
         post_response = post(url, json=payload, headers=headers)
-        post_output = post_response.json()
         if 299 >= post_response.status_code >= 200:
-            new_item = True
-            if code in self.ids_dict.values() or code in self.ids_dict:
-                new_item = False
-            self.print_order_table(current_stock, post_output["quantity"], get_output, new_item)
-            return
+            # log useful data about the order
+            self.logger.info(str(item))
         else:
-            self.logger.error(f'{post_output["message"]} failed attempting to update stock for item {code} ({cloverid})')
-            raise Exception(post_output["message"])
+            try:
+                msg = post_response.json().get("message", "")
+            except:
+                msg = post_response.text
+            self.logger.error(f'{msg} failed attempting to update stock for item {item.code} ({item.cloverid})')
+            self._handle_api_error(post_response)
     
     def post_new_item(self, item : OrderItem):
         """
@@ -208,21 +178,54 @@ class InventoryAdapter:
         Args:
             item: OrderItem object with the data for the new inventory item
         """
-        if item.fromQBP == True:
-            item.updateItem(self.qbp_inv)
-        
         url = f'{self.url}/items' 
-        header = {"Authorization" : "Bearer " + self.token,
+        header = {
+            "Authorization" : "Bearer " + self.token,
             "Accept": "application/json",
             "content-type": "application/json"}
 
         # add new item to inventory
         response = post(url, headers=header, json=item.getItemDict())
-        output = response.json()
         if 299 >= response.status_code >= 200:
-            cloverid = output["id"]
-            self.post_stock(cloverid, item.stock)
+            output = response.json()
+            # add cloverid with set method
+            item.updateFromInventory(output)
+            # add stock
+            self.logger.info(f'Added new item {item.code}')
+            return self.post_stock(item)
         else:
-            self.logger.error(f'{output["message"]} failed attempting add new item {item.code} ({cloverid})')
-            raise Exception(output["message"])
+            try:
+                msg = response.json().get("message", "")
+            except:
+                msg = response.text
+            self.logger.error(f'{msg} failed attempting add new item {item.code} ({item.cloverid})')
+            self._handle_api_error(response)
+        
+    def post_update_item(self, item : OrderItem):
+        """
+        Updates a current item within the inventory system
+        Args:
+            item: OrderItem object with the data for the new inventory item
+        """
+        url = f'{self.url}/items/{item.cloverid}' 
+        header = {
+            "Authorization" : "Bearer " + self.token,
+            "Accept": "application/json",
+            "content-type": "application/json"}
+        # if item attributes were modified, update them
+        if item.modified is True:
+            response = post(url, headers=header, json=item.getItemDict())
+            if 299 >= response.status_code >= 200:
+                self.logger.info(f'Updated attributes for {item.code}')
+                return self.post_stock(item)
+            else:
+                try:
+                    msg = response.json().get("message", "")
+                except:
+                    msg = response.text
+                self.logger.error(f'{msg} failed attempting add new item {item.code} ({item.cloverid})')
+                self._handle_api_error(response)
+        # if not, save an API call and just update the stock
+        else:
+            return self.post_stock(item)
             
