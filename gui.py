@@ -141,11 +141,17 @@ class InventoryApp:
 
         self.order = None
         self.inv = None 
+
+        # get base directory
+        base_dir = os.getcwd() # if running a script
+        if getattr(sys, 'frozen', False): #if compiled by PyInstaller on Mac
+            base_dir = os.path.dirname(sys.executable)
+
         # Default paths for .env and report.txt
         # for the env it may be either "env" (mac) or ".env" (windows)
-        env_name = "env" if os.path.exists(os.path.join(os.getcwd(), "env")) else ".env"
-        self.env_path_var.set(os.path.join(os.getcwd(), env_name))
-        self.report_path_var.set(os.path.join(os.getcwd(), "report.txt"))
+        env_name = "env" if os.path.exists(os.path.join(base_dir, "env")) else ".env"
+        self.env_path_var.set(os.path.join(base_dir, env_name))
+        self.report_path_var.set(os.path.join(base_dir, "report.txt"))
 
         self.create_widgets()
 
