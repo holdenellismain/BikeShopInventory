@@ -142,27 +142,29 @@ class InventoryApp:
         self.order = None
         self.inv = None 
         # Default paths for .env and report.txt
-        self.env_path_var.set("C:/Users/fires/Python Projects/Bike Shop Inventory/.env")
+        # for the env it may be either "env" (mac) or ".env" (windows)
+        env_name = "env" if os.path.exists(os.path.join(os.getcwd(), "env")) else ".env"
+        self.env_path_var.set(os.path.join(os.getcwd(), env_name))
         self.report_path_var.set(os.path.join(os.getcwd(), "report.txt"))
 
         self.create_widgets()
 
     def create_widgets(self):
         # --- File Selection Section ---
-        input_frame = tk.LabelFrame(self.root, text="Configuration", padx=10, pady=10)
-        input_frame.pack(fill="x", padx=10, pady=5)
+        self.input_frame = tk.LabelFrame(self.root, text="Configuration", padx=10, pady=10)
+        self.input_frame.pack(fill="x", padx=10, pady=5)
 
         # Order File
-        self.create_file_row(input_frame, "Order File (.csv or .html):", self.order_path_var, 0)
+        self.create_file_row(self.input_frame, "Order File (.csv or .html):", self.order_path_var, 0)
         
         # .env File
-        self.create_file_row(input_frame, ".env File:", self.env_path_var, 1)
+        self.create_file_row(self.input_frame, ".env File:", self.env_path_var, 1)
 
         # Report File
-        self.create_file_row(input_frame, "Report History File:", self.report_path_var, 2)
+        self.create_file_row(self.input_frame, "Report History File:", self.report_path_var, 2)
 
         # QBP Catalog
-        self.create_file_row(input_frame, "QBP Catalog (.txt):", self.catalog_path_var, 3)
+        self.create_file_row(self.input_frame, "QBP Catalog (.txt):", self.catalog_path_var, 3)
 
         # --- Action Section ---
         action_frame = tk.Frame(self.root, padx=10, pady=10)
@@ -267,9 +269,15 @@ class InventoryApp:
         text_handler.setFormatter(formatter)
         self.logger.addHandler(text_handler)
 
+    def set_input_frame_state(self, state):
+        """Enables or disables all widgets in the input frame."""
+        for child in self.input_frame.winfo_children():
+            child.configure(state=state)
+
     def start_load_order_thread(self):
         """Runs the process in a separate thread to keep GUI responsive"""
         self.run_btn.config(state="disabled", text="Processing...")
+        self.set_input_frame_state("disabled")
         # Clear previous table entries
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -346,13 +354,15 @@ class InventoryApp:
             with open(report_path, "a") as file:
                 file.write(order_path + "\n")
             self.logger.info(f"Order fully uploaded to Clover: {order_path}")
-            messagebox.showinfo("Success", "Order has been successfully committed to Clover inventory.")
-            self.root.after(0, lambda: self.run_btn.config(state="normal", text="Load Order", command=self.start_load_order_thread))
+            self.root.after(0,lambda: messagebox.showinfo("Success",
+                    "Order has been successfully committed to Clover inventory."))
+            self.root.after(0,lambda: self.run_btn.config(state="normal",text="Exit",command=self.root.destroy))
 
         except Exception as e:
             self.logger.error(f"An error occurred during inventory commit: {e}", exc_info=True)
-            messagebox.showerror("Commit Error", f"Failed to commit inventory: {e}")
-            self.root.after(0, lambda: self.run_btn.config(state="normal", text="Add to Clover Inventory")) # Allow retry
+            self.root.after(0,lambda: messagebox.showerror("Commit Error",
+                    f"Failed to commit inventory: {e}"))
+            self.root.after(0,lambda: self.run_btn.config(state="normal",text="Add to Clover Inventory"))
 
     def run_process(self):
         try:
@@ -435,6 +445,7 @@ class InventoryApp:
             messagebox.showerror("Error", f"An error occurred:\n{str(e)}")
             # On failure, reset the button to its original state
             self.root.after(0, lambda: self.run_btn.config(state="normal", text="Load Order", command=self.start_load_order_thread))
+            self.root.after(0, lambda: self.set_input_frame_state("normal"))
         
 if __name__ == "__main__":
     root = tk.Tk()
