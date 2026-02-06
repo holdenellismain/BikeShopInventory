@@ -126,17 +126,31 @@ class OrderItem:
 
     # Below are helper functions for generating the Treeview table
 
+    def price_warning(self):
+        """
+        Helper function for highlighting. Returns true if the item is new or 
+        price/cost ratio is suspicious
+        """
+        if self.price is None or self.cost is None or self.cost <= 0:
+            return True
+        if self.price < self.cost:
+            return True
+        if self.newItem is True:
+            return True
+        return False
+
+
     def get_treeview_definition():
         """
         Returns the column definitions (headings and widths) for a Treeview.
         """
-        columns = ("New Item", "Name", "Code", "New Stock", "Cost", "Price", "UPC", "Old Stock", "Price Type")
+        columns = ("Name", "Code", "New Stock", "Cost / Unit", "Price / Unit", "UPC", "Current Stock", "Price Type", "New Item?")
         return {
             "columns": columns,
             "headings": {col: col for col in columns},
             "column_widths": {
-                "New Item": 60, "Name": 200, "Code": 100, "New Stock": 60,
-                "Cost": 80, "Price": 80, "UPC": 100, "Old Stock": 60, "Price Type": 80
+                "New Item?": 60, "Name": 200, "Code": 60, "New Stock": 60,
+                "Cost / Unit": 60, "Price / Unit": 60, "UPC": 80, "Current Stock": 80, "Price Type": 60
             }
         }
 
@@ -150,5 +164,7 @@ class OrderItem:
         upc_val = self.upc if self.upc is not None else ""
         old_stock_val = self.oldStock if self.oldStock is not None else ""
         price_type_val = self.priceType if self.priceType is not None else ""
+        new = "Yes" if self.newItem is True else "No"
 
-        return (self.newItem, self.name, self.code, self.newStock, cost_str, price_str, upc_val, old_stock_val, price_type_val)
+        # order of this tuple needs to match the order of the columns for the table definition in prev func
+        return (self.name, self.code, self.newStock, cost_str, price_str, upc_val, old_stock_val, price_type_val, new)

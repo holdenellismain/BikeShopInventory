@@ -15,8 +15,6 @@ try:
     from file_check import file_written, get_checkpoint
     from Order import Order
 except ImportError as e:
-    # This block is just to prevent the GUI from crashing if dependencies aren't found immediately
-    # In production, these should exist.
     print(f"Critical Error: Missing required modules. {e}")
 
 class TextHandler(logging.Handler):
@@ -177,7 +175,7 @@ class InventoryApp:
         action_frame.pack(fill="x")
 
         self.run_btn = tk.Button(action_frame, text="Load Order",
-                                 command=self.start_load_order_thread)
+                                 command=self.start_load_order_thread, bg="#B6FB6F")
         self.run_btn.pack(fill="x", pady=5)
 
         # --- Output Section (Tabs) ---
@@ -209,7 +207,9 @@ class InventoryApp:
         self.tree = ttk.Treeview(parent, columns=columns, show="headings")
 
         # Configure a tag for highlighting rows with low margin
-        self.tree.tag_configure('low_margin', background='yellow')
+        self.tree.tag_configure('highlight', background='yellow')
+        self.tree.tag_configure('odd', background='#F0F0F0')
+        self.tree.tag_configure('even', background='white')
 
         # Setup Headings
         for col, heading in table_def["headings"].items():
@@ -304,22 +304,21 @@ class InventoryApp:
 
         EditItemWindow(self.root, order_item_to_edit, item_id, self.tree, self.update_item_and_refresh_row)
 
-    def update_item_and_refresh_row(self, item_obj, new_data):
+    def update_item_and_refresh_row(self, item, new_data):
         """Callback to update the item and refresh its row in the tree."""
         try:
-            item_obj.updateAttributes(new_data)
+            item.updateAttributes(new_data)
             # Find the treeview item by finding the object in our list
-            item_index = self.order.items.index(item_obj)
+            item_index = self.order.items.index(item)
             item_id = self.tree.get_children()[item_index] # This is the iid
 
             # Highlight the row if price is too low
-            tags = ()
-            if item_obj.price is not None and item_obj.cost is not None and item_obj.cost > 0:
-                if item_obj.price < item_obj.cost:
-                    tags = ('low_margin',)
+            tags = ['even' if item_index % 2 == 0 else 'odd']
+            if item.price_warning() is True:
+                    tags.append('highlight')
 
             # Update the item in the treeview with new values and tags
-            self.tree.item(item_id, values=item_obj.get_treeview_values(), tags=tags)
+            self.tree.item(item_id, values=item.get_treeview_values(), tags=tuple(tags))
         except Exception as e:
             messagebox.showerror("Update Error", f"Failed to update item: {e}")
 
@@ -429,14 +428,13 @@ class InventoryApp:
             for i, item in enumerate(self.order.items):
                 if hasattr(item, 'get_treeview_values'):
                     # Determine if the row should be highlighted
-                    tags = ()
-                    if item.price is not None and item.cost is not None and item.cost > 0:
-                        if item.price < item.cost:
-                            tags = ('low_margin',)
+                    tags = ['even' if i % 2 == 0 else 'odd']
+                    if item.price_warning() is True:
+                            tags.append('highlight')
 
                     values = item.get_treeview_values()
                     # The iid is set to the index to easily map back
-                    self.root.after(0, lambda item_index=i, item_values=values, item_tags=tags: 
+                    self.root.after(0, lambda item_index=i, item_values=values, item_tags=tuple(tags): 
                                    self.tree.insert("", "end", iid=item_index, values=item_values, tags=item_tags))
             
             self.notebook.select(0) # Switch to the Table tab
