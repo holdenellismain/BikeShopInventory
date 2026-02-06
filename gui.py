@@ -175,7 +175,9 @@ class InventoryApp:
         action_frame.pack(fill="x")
 
         self.run_btn = tk.Button(action_frame, text="Load Order",
-                                 command=self.start_load_order_thread, bg="#B6FB6F")
+                                 command=self.start_load_order_thread, 
+                                 bg="#B6FB6F", #windows
+                                 highlightbackground="#B6FB6F") #macos
         self.run_btn.pack(fill="x", pady=5)
 
         # --- Output Section (Tabs) ---
