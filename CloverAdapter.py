@@ -1,4 +1,4 @@
-from requests import get, post
+from requests import get, post, put
 import csv
 from OrderItem import OrderItem
 import logging
@@ -145,7 +145,7 @@ class InventoryAdapter:
         
         return output_data
 
-    def post_stock(self, item : OrderItem):
+    def put_stock(self, item : OrderItem):
         """
         Updates the stock for an inventory item, 
         This is a separate method because it has a different API endpoint
@@ -159,18 +159,20 @@ class InventoryAdapter:
             "authorization" : "Bearer " + self.token,
             "accept": "application/json",
         }
-        payload = {"quantity": item.oldStock + item.newStock}
-        post_response = post(url, json=payload, headers=headers)
-        if 299 >= post_response.status_code >= 200:
+        payload = {
+            "quantity": item.oldStock + item.newStock,
+            "stockAlertThreshold" : 0} # we don't use this as of 5/26 but it could be useful in the future
+        put_response = put(url, json=payload, headers=headers)
+        if 299 >= put_response.status_code >= 200:
             # log useful data about the order
             self.logger.info(str(item))
         else:
             try:
-                msg = post_response.json().get("message", "")
+                msg = put_response.json().get("message", "")
             except:
-                msg = post_response.text
+                msg = put_response.text
             self.logger.error(f'{msg} failed attempting to update stock for item {item.code} ({item.cloverid})')
-            self._handle_api_error(post_response)
+            self._handle_api_error(put_response)
     
     def post_new_item(self, item : OrderItem):
         """
