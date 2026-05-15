@@ -17,10 +17,20 @@ The bike shop I work at uses the [Clover](https://www.clover.com/) inventory and
    - Use the API to input items one-by-one. This functionality is handled by the `InventoryAdapter` class in [CloverAdapter.py](CloverAdapter.py)
    - A log file is used to keep track of actions
 
-There is a little more complexity in terms of workflow and error handling. This is integrated into the GUI through [gui.py](gui.py)
+There is a little more complexity in terms of mechanic workflow and error handling. This is integrated into the GUI through [gui.py](gui.py)
+
+## File Structure
+
+* [gui.py](gui.py) is the central hub.
+* [CloverAdapter.py](gui.py) helps users connect with Clover's Inventory API through the class `InventoryAdapter`.
+* [OrderItem.py](OrderItem.py) class to help store data for clover items in Python program (abstraction).
+* [CloverOrderReaderAdapter.py](CloverOrderReaderAdapter.py) is an extension for `InventoryAdapter` that allows some functionality to read orders. 
+* [Order.py](Order.py) helps initialize an order (basically a list but with some extra features).
+* [file_check.py](file_check.py) handles some logging features that are essential to order parsing.
+* [jbiqbp_scrape.py](jbiqbp_scrape.py) 
+* [input_order.py](input_order.py) [DEPRECATED] system for order input that doesn't use a GUI. If the GUI is being difficult, we can use this instead.
 
 ## Future Development
 
-- Turn the GUI into a single executable instead of a `.py` file
-- Created a dedicated documentation file/usage guide.
+- Better updating/compilation procedure into an executable version of [gui.py](gui.py). I've been having to recompile on every time I make any changes using [PyInstaller](https://pyinstaller.org/en/stable/) but I feel like there must be a better way.
 - Create unit tests to make it more resilient against changes in order file formatting and the API.
